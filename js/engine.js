@@ -1,55 +1,45 @@
 // ==========================================
-// CORE ENGINE MODULE (V2.3 - Fixed Calendar)
+// CORE ENGINE MODULE (V2.4 - Rolling Long-term Memory)
 // ==========================================
-// Features: Calendar Fix, Memory Compressor, Hybrid Truncation, Session Isolation, Persona Cards
+// Features: Non-destructive Compression, Pinned Memory, Hybrid Truncation, Session Isolation
 
 Object.assign(core, {
     // 1. 系统初始化
     init: () => {
         ui.initTheme();
         
-        // 读取配置
         Object.keys(core.conf).forEach(k => {
             const val = localStorage.getItem('v11_' + k);
             if(val !== null) core.conf[k] = val;
         });
 
-        // 读取人设 & 记忆
         try { core.personas = JSON.parse(localStorage.getItem('v11_personas') || '{}'); } catch (e) { core.personas = {}; }
         try { core.mems = JSON.parse(localStorage.getItem('v11_mems') || '[]'); } catch (e) { }
         try { core.evts = JSON.parse(localStorage.getItem('v11_evts') || '[]'); } catch (e) { }
         try { core.sessions = JSON.parse(localStorage.getItem('v11_sessions') || '{}'); } catch (e) { }
         
-        // 加载最后一次会话
         core.currSessId = localStorage.getItem('v11_curr_id');
         if (!core.currSessId || !core.sessions[core.currSessId]) core.newSession();
         else core.loadSession(core.currSessId);
 
-        // UI 绑定
         const setVal = (id, v) => { const el = document.getElementById(id); if(el) el.value = v; };
         const setTxt = (id, v) => { const el = document.getElementById(id); if(el) el.innerText = v; };
-
         setVal('c-url', core.conf.url); setVal('c-key', core.conf.key); setVal('c-mod', core.conf.model);
         setVal('c-per', core.conf.persona); setVal('c-temp', core.conf.temp); setTxt('t-val', core.conf.temp);
 
-        // 【V2.3 修复】日历初始化模块 (之前不小心丢了)
+        // 日历修复
         const now = new Date();
         core.selectedDateStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
-        if(typeof calendar !== 'undefined') { 
-            calendar.renderCalendar(); 
-            calendar.renderEvt(); 
-        }
+        if(typeof calendar !== 'undefined') { calendar.renderCalendar(); calendar.renderEvt(); }
 
-        // 自动注入功能按钮
         core.injectToolsUI();
-
         setTimeout(core.checkDailyGreeting, 2000); 
         setInterval(core.clockTick, 1000);
     },
 
-    // 2. 界面注入 (Persona & Memory Tools)
+    // 2. 界面注入
     injectToolsUI: () => {
-        // A. 人设工具
+        // 人设工具
         const perBox = document.getElementById('c-per');
         if(perBox && !document.getElementById('persona-tools')) {
             const div = document.createElement('div');
@@ -61,37 +51,39 @@ Object.assign(core, {
             `;
             perBox.parentNode.insertBefore(div, perBox.nextSibling);
         }
-
-        // B. 记忆压缩工具
+        // 记忆压缩工具
         const memInput = document.getElementById('new-mem-keys');
         if(memInput && !document.getElementById('mem-tools')) {
             const div = document.createElement('div');
             div.id = 'mem-tools';
             div.style.marginBottom = '5px';
             div.innerHTML = `
-                <button onclick="core.compressSession()" style="width:100%; padding:8px; background:#e0e0e0; border:none; border-radius:4px; cursor:pointer; font-weight:bold; color:#333;">🧠 压缩当前对话至记忆 (Compress Chat)</button>
+                <button onclick="core.compressSession()" style="width:100%; padding:8px; background:#e0e0e0; border:none; border-radius:4px; cursor:pointer; font-weight:bold; color:#333;">🧠 提取剧情摘要 (不清除对话)</button>
+                <div id="pinned-mem-display" style="font-size:11px; color:#666; margin-top:4px; font-style:italic;"></div>
             `;
             memInput.parentNode.insertBefore(div, memInput);
         }
     },
     
-    // 3. 记忆压缩功能
+    // 3. 【V2.4 核心】无损记忆压缩
     compressSession: async () => {
         const sess = core.sessions[core.currSessId];
         const cfg = sess.config || core.conf;
         
         if (sess.msgs.length < 2) return alert("对话太短，没必要压缩。");
-        if (!confirm("确定要将当前的对话记录总结并存入记忆库吗？\n(这将消耗一次 API 调用)")) return;
+        // 这里不再问是否清空，只确认生成
+        if (!confirm("要提取当前剧情摘要，并将其作为【长期记忆】固定在后台吗？")) return;
 
-        core.showToast('正在阅读并总结...', 'loading');
+        core.showToast('正在研读剧情...', 'loading');
 
+        // 构造请求
         const chatLog = sess.msgs.map(m => `${m.role}: ${m.content}`).join('\n');
         const prompt = `
             [System Instruction]: 
-            You are a helpful assistant serving as a memory archivist.
-            Read the following chat history between User and Assistant.
-            Summarize the key events, facts, and character developments into a concise paragraph (max 100 words).
-            The summary must be in the same language as the chat.
+            You are a helpful assistant serving as a memory archivist for a novel writing session.
+            Read the following chat history.
+            Summarize the key plot points, decisions, and character emotional states into a concise paragraph (max 150 words).
+            This summary will be used as "Long Term Memory" for the next conversation.
             
             [Chat History]:
             ${chatLog}
@@ -110,29 +102,54 @@ Object.assign(core, {
             const data = await res.json();
             const summary = data.choices[0].message.content;
 
+            // 1. 存入普通记忆库 (作为备份)
             const dateStr = new Date().toLocaleDateString();
             core.mems.push({ 
-                keys: ['Summary', '摘要', '前情提要'], 
-                info: `[${dateStr} Summary]: ${summary}` 
+                keys: ['History', '摘要'], 
+                info: `[${dateStr} Record]: ${summary}` 
             });
             localStorage.setItem('v11_mems', JSON.stringify(core.mems));
             core.renderMemCards();
             
-            core.showToast('✅ 记忆已压缩保存');
+            // 2. 【关键步骤】钉在当前会话配置里
+            if (!sess.config) sess.config = { ...core.conf };
+            sess.config.pinnedMemory = summary; // 存进 pinnedMemory 字段
+            core.saveSessions();
+            
+            // 3. UI 反馈
+            core.showToast('✅ 摘要已钉选');
+            
+            // 在聊天框里插入一条系统提示（不发给AI，只给用户看）
+            const aiIdx = sess.msgs.length;
+            const sysDiv = document.createElement('div');
+            sysDiv.className = 'bubble ai';
+            sysDiv.style.background = '#f0f0f0';
+            sysDiv.style.fontStyle = 'italic';
+            sysDiv.innerHTML = `<strong>[System Note]:</strong> 长时记忆已更新。<br>AI 现在记住了：<br>"${summary.substring(0, 60)}..."`;
+            document.getElementById('chat-box').appendChild(sysDiv);
+            document.getElementById('chat-box').scrollTop = 99999;
 
-            if (confirm(`摘要已生成：\n"${summary.substring(0, 50)}..."\n\n是否清空当前聊天记录，开始新的一章？`)) {
-                sess.msgs = [];
-                core.saveSessions();
-                core.loadSession(core.currSessId);
-            }
+            // 更新显示
+            core.updatePinnedDisplay();
 
         } catch (e) {
             alert("压缩失败: " + e.message);
             core.showToast('❌ 压缩失败', 'error');
         }
     },
+    
+    // 更新摘要显示的小函数
+    updatePinnedDisplay: () => {
+        const sess = core.sessions[core.currSessId];
+        const el = document.getElementById('pinned-mem-display');
+        if (el && sess && sess.config && sess.config.pinnedMemory) {
+            el.innerText = `📌 当前生效的长时记忆: ${sess.config.pinnedMemory.substring(0, 30)}...`;
+        } else if (el) {
+            el.innerText = "";
+        }
+    },
 
-    // 4. 常规功能 (人设、会话等)
+    // 4. 常规功能保持不变
     savePersonaCard: () => {
         const name = prompt("给当前人设起个名字:");
         if (name) {
@@ -172,6 +189,8 @@ Object.assign(core, {
         
         const box = document.getElementById('chat-box'); box.innerHTML = ''; 
         sess.msgs.forEach((m, i) => ui.bubble(m.role === 'assistant' ? 'ai' : 'user', m.content, m.img, m.file, i, m.time)); 
+        
+        core.updatePinnedDisplay(); // 加载时更新显示
     },
     saveSessions: () => localStorage.setItem('v11_sessions', JSON.stringify(core.sessions)),
     saveConn: async () => {
@@ -189,7 +208,7 @@ Object.assign(core, {
         await core.testConnection();
     },
     
-    // 5. 核心发送模块 (Hybrid Logic & Claude Fix)
+    // 5. 核心发送模块 (集成 Pinned Memory)
     send: async () => {
         const el = document.getElementById('u-in'); const txt = el.value.trim();
         const sess = core.sessions[core.currSessId];
@@ -214,6 +233,12 @@ Object.assign(core, {
         const dateStr = `${now.getFullYear()}-${now.getMonth()+1}-${now.getDate()} ${days[now.getDay()]}`;
         
         let sys = (cfg.persona || "You are a helpful assistant.") + `\n[Date: ${dateStr}]`;
+        
+        // 【V2.4 新增】强制注入 Pinned Memory (长时记忆)
+        if (cfg.pinnedMemory) {
+            sys += `\n\n[PREVIOUS CONTEXT / LONG-TERM MEMORY]:\n${cfg.pinnedMemory}\n(The above is a summary of previous events. Continue the story based on this.)\n`;
+        }
+
         const hits = core.mems.filter(m => m.keys.some(k => txt.toLowerCase().includes(k.toLowerCase())));
         if (hits.length) sys += `\n[Memory]:\n${hits.map(h => `- ${h.info}`).join('\n')}`;
 
@@ -272,7 +297,7 @@ Object.assign(core, {
         } catch (e) { aiDiv.innerHTML = 'Error: ' + e.message; }
     },
     
-    // 6. 其他辅助 (时钟, 语音, 文件等)
+    // 6. 辅助功能 (时钟, Toast等)
     clockTick: () => {
         const n = new Date();
         const cn = new Date(n.getTime() + (n.getTimezoneOffset() * 60000) + (3600000 * 8));
@@ -309,7 +334,7 @@ Object.assign(core, {
             else core.showToast(`❌ 失败: ${res.status}`, 'error');
         } catch (e) { core.showToast('❌ 网络错误', 'error'); }
     },
-    exportData: () => { const d = { conf: core.conf, voice: core.voiceConf, mems: core.mems, evts: core.evts, sessions: core.sessions, personas: core.personas }; const b = new Blob([JSON.stringify(d, null, 2)], { type: 'application/json' }); const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = 'schiller_v23.json'; a.click(); },
+    exportData: () => { const d = { conf: core.conf, voice: core.voiceConf, mems: core.mems, evts: core.evts, sessions: core.sessions, personas: core.personas }; const b = new Blob([JSON.stringify(d, null, 2)], { type: 'application/json' }); const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = 'schiller_v24.json'; a.click(); },
     importData: (i) => {
         const r = new FileReader();
         r.onload = (e) => {
@@ -326,8 +351,6 @@ Object.assign(core, {
         };
         r.readAsText(i.files[0]);
     },
-    
-    // Voice
     setVoiceMode: (m) => { core.voiceConf.mode = m; core.updateVoiceUI(); },
     updateVoiceUI: () => {
         document.getElementById('v-mode-disp').value = core.voiceConf.mode.toUpperCase();
