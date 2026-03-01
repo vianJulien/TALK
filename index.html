@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, interactive-widget=resizes-content">
-    <title>ChatVie V1.2</title>
+    <title>ChatVie V2.4</title>
 
     <link rel="manifest" href="manifest.json">
     <link rel="stylesheet" href="style.css">
@@ -40,7 +40,7 @@
                  Personality Tuning
             </button>
             <button class="btn" style="width:100%; color:var(--text-sub); border:none; background:var(--bg);" onclick="ui.showLog(); ui.toggleSidebar(false);">
-                 Update Log (V1.2)
+                 Update Log (V2.4)
             </button>
         </div>
     </div>
@@ -160,48 +160,48 @@
                 <div class="tab" onclick="ui.tab('bkp')">Data</div>
             </div>
 
-          <div id="tab-conn" class="tab-content active">
-                <button class="btn" onclick="ui.toggleTheme()" style="width:100%; margin-bottom:15px; background:var(--bg); color:var(--text); border:1px solid var(--accent); font-weight:bold;">
-                    Switch Theme (Day/Night)
-                </button>
+         <div id="tab-conn" class="tab-content active">
+            <button class="btn" onclick="ui.toggleTheme()" style="width:100%; margin-bottom:15px; background:var(--bg); color:var(--text); border:1px solid var(--accent); font-weight:bold;">
+                🌗 Switch Theme (Day/Night)
+            </button>
 
-                <label>API Format (底层协议)</label>
-                <select id="c-fmt" class="inp" style="border-color:var(--accent); color:var(--accent); font-weight:bold;">
-                    <option value="openai">OpenAI 格式 (通用/DeepSeek/GPT)</option>
-                    <option value="gemini">Google Gemini 格式</option>
-                </select>
+            <label style="margin-top:10px;">API Format (底层协议)</label>
+            <select id="c-fmt" class="inp" style="border-color:var(--accent); color:var(--accent); font-weight:bold;">
+                <option value="openai">OpenAI 格式 (通用/DeepSeek/GPT)</option>
+                <option value="gemini">Google Gemini 格式</option>
+            </select>
 
-                <div class="row" style="display:flex;gap:10px; margin-bottom:12px;">
-                    <button class="btn" style="flex:1" onclick="core.preset('ds')">DeepSeek</button>
-                    <button class="btn" style="flex:1" onclick="core.preset('oa')">GPT-4o</button>
-                    <button class="btn" style="flex:1" onclick="core.preset('gemini')">Gemini</button>
-                </div>
-
-                <label>Chat API Key</label><input type="password" id="c-key" class="inp">
-                <label>Endpoint</label><input type="text" id="c-url" class="inp">
-                <label>Model</label><input type="text" id="c-mod" class="inp">
-                <label>Persona</label><textarea id="c-per" class="inp" rows="3"></textarea>
-                
-                <div style="background:var(--card); padding:10px; border-radius:8px; border:1px solid var(--border); margin-bottom:12px;">
-                    <label>Temperature: <span id="t-val" style="color:var(--accent)">1.0</span> (发散度)</label>
-                    <input type="range" id="c-temp" class="slider" min="0" max="2" step="0.1" value="1.0" oninput="document.getElementById('t-val').innerText=this.value">
-                    
-                    <label>Freq Penalty: <span id="val-freq" style="color:var(--accent)">0.0</span> (拒绝重复)</label>
-                    <input type="range" id="c-freq" class="slider" min="-2" max="2" step="0.1" value="0" oninput="document.getElementById('val-freq').innerText=this.value">
-                    
-                    <label>Pres Penalty: <span id="val-pres" style="color:var(--accent)">0.0</span> (引入新词)</label>
-                    <input type="range" id="c-pres" class="slider" min="-2" max="2" step="0.1" value="0" oninput="document.getElementById('val-pres').innerText=this.value">
-
-                    <label style="margin-top:10px">Max Tokens (0=Default)</label>
-                    <input type="number" id="c-max" class="inp" value="0">
-
-                    <label style="margin-top:10px">Min Output (最低回复字数):</label>
-                    <input type="number" id="c-min" class="inp" placeholder="例如: 500" style="margin-bottom:0;">
-                    <small style="color:var(--text-sub); font-size:0.7rem;">提示：AI 会尝试以此字数作为回复的底线。</small>
-                </div>
-
-                <button class="btn primary" onclick="core.saveConn()">Save Config</button>
+            <div class="row" style="display:flex;gap:10px; margin-bottom:12px;">
+                <button class="btn" style="flex:1" onclick="core.preset('ds')">DeepSeek</button>
+                <button class="btn" style="flex:1" onclick="core.preset('oa')">GPT-4o</button>
+                <button class="btn" style="flex:1" onclick="core.preset('gemini')">Gemini</button>
             </div>
+
+            <label>Chat API Key</label><input type="password" id="c-key" class="inp">
+            <label>Endpoint</label><input type="text" id="c-url" class="inp">
+            <label>Model</label><input type="text" id="c-mod" class="inp">
+            <label>Persona</label><textarea id="c-per" class="inp" rows="3"></textarea>
+            
+            <div style="background:var(--card); padding:10px; border-radius:8px; border:1px solid var(--border); margin-bottom:12px;">
+                <label>Temperature: <span id="t-val" style="color:var(--accent)">1.0</span> (发散度)</label>
+                <input type="range" id="c-temp" class="slider" min="0" max="2" step="0.1" value="1.0" oninput="document.getElementById('t-val').innerText=this.value">
+                
+                <label>Freq Penalty: <span id="val-freq" style="color:var(--accent)">0.0</span> (拒绝重复)</label>
+                <input type="range" id="c-freq" class="slider" min="-2" max="2" step="0.1" value="0" oninput="document.getElementById('val-freq').innerText=this.value">
+                
+                <label>Pres Penalty: <span id="val-pres" style="color:var(--accent)">0.0</span> (引入新词)</label>
+                <input type="range" id="c-pres" class="slider" min="-2" max="2" step="0.1" value="0" oninput="document.getElementById('val-pres').innerText=this.value">
+
+                <label style="margin-top:10px">Max Tokens (0=Default)</label>
+                <input type="number" id="c-max" class="inp" value="0">
+
+                <label style="margin-top:10px">Min Output (最低回复字数):</label>
+                <input type="number" id="c-min" class="inp" placeholder="例如: 500" style="margin-bottom:0;">
+                <small style="color:var(--text-sub); font-size:0.7rem;">提示：AI 会尝试以此字数作为回复的底线。</small>
+            </div>
+
+            <button class="btn primary" onclick="core.saveConn()">Save Config</button>
+        </div>
             
             <div id="tab-voice" class="tab-content">
                  <label>Voice Engine</label>
