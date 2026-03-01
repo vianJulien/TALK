@@ -1,7 +1,7 @@
 // ==========================================
-// CORE ENGINE MODULE (V2.2 - Memory Compressor)
+// CORE ENGINE MODULE (V2.3 - Fixed Calendar)
 // ==========================================
-// Features: Hybrid Truncation, Session Isolation, Persona Cards, Memory Compression
+// Features: Calendar Fix, Memory Compressor, Hybrid Truncation, Session Isolation, Persona Cards
 
 Object.assign(core, {
     // 1. 系统初始化
@@ -20,19 +20,27 @@ Object.assign(core, {
         try { core.evts = JSON.parse(localStorage.getItem('v11_evts') || '[]'); } catch (e) { }
         try { core.sessions = JSON.parse(localStorage.getItem('v11_sessions') || '{}'); } catch (e) { }
         
+        // 加载最后一次会话
+        core.currSessId = localStorage.getItem('v11_curr_id');
+        if (!core.currSessId || !core.sessions[core.currSessId]) core.newSession();
+        else core.loadSession(core.currSessId);
+
         // UI 绑定
         const setVal = (id, v) => { const el = document.getElementById(id); if(el) el.value = v; };
         const setTxt = (id, v) => { const el = document.getElementById(id); if(el) el.innerText = v; };
 
         setVal('c-url', core.conf.url); setVal('c-key', core.conf.key); setVal('c-mod', core.conf.model);
         setVal('c-per', core.conf.persona); setVal('c-temp', core.conf.temp); setTxt('t-val', core.conf.temp);
-        
-        // 加载会话
-        core.currSessId = localStorage.getItem('v11_curr_id');
-        if (!core.currSessId || !core.sessions[core.currSessId]) core.newSession();
-        else core.loadSession(core.currSessId);
 
-        // 【V2.2 新增】自动注入功能按钮 (人设卡 + 记忆压缩)
+        // 【V2.3 修复】日历初始化模块 (之前不小心丢了)
+        const now = new Date();
+        core.selectedDateStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+        if(typeof calendar !== 'undefined') { 
+            calendar.renderCalendar(); 
+            calendar.renderEvt(); 
+        }
+
+        // 自动注入功能按钮
         core.injectToolsUI();
 
         setTimeout(core.checkDailyGreeting, 2000); 
@@ -54,7 +62,7 @@ Object.assign(core, {
             perBox.parentNode.insertBefore(div, perBox.nextSibling);
         }
 
-        // B. 记忆压缩工具 (注入到记忆列表上方)
+        // B. 记忆压缩工具
         const memInput = document.getElementById('new-mem-keys');
         if(memInput && !document.getElementById('mem-tools')) {
             const div = document.createElement('div');
@@ -67,7 +75,7 @@ Object.assign(core, {
         }
     },
     
-    // 3. 【V2.2 核心】记忆压缩功能
+    // 3. 记忆压缩功能
     compressSession: async () => {
         const sess = core.sessions[core.currSessId];
         const cfg = sess.config || core.conf;
@@ -77,7 +85,6 @@ Object.assign(core, {
 
         core.showToast('正在阅读并总结...', 'loading');
 
-        // 构造总结请求
         const chatLog = sess.msgs.map(m => `${m.role}: ${m.content}`).join('\n');
         const prompt = `
             [System Instruction]: 
@@ -103,7 +110,6 @@ Object.assign(core, {
             const data = await res.json();
             const summary = data.choices[0].message.content;
 
-            // 存入记忆库
             const dateStr = new Date().toLocaleDateString();
             core.mems.push({ 
                 keys: ['Summary', '摘要', '前情提要'], 
@@ -114,7 +120,6 @@ Object.assign(core, {
             
             core.showToast('✅ 记忆已压缩保存');
 
-            // 询问是否清空
             if (confirm(`摘要已生成：\n"${summary.substring(0, 50)}..."\n\n是否清空当前聊天记录，开始新的一章？`)) {
                 sess.msgs = [];
                 core.saveSessions();
@@ -127,7 +132,7 @@ Object.assign(core, {
         }
     },
 
-    // 4. 常规功能保持不变
+    // 4. 常规功能 (人设、会话等)
     savePersonaCard: () => {
         const name = prompt("给当前人设起个名字:");
         if (name) {
@@ -183,6 +188,8 @@ Object.assign(core, {
         core.showToast('✅ 配置保存', 'success');
         await core.testConnection();
     },
+    
+    // 5. 核心发送模块 (Hybrid Logic & Claude Fix)
     send: async () => {
         const el = document.getElementById('u-in'); const txt = el.value.trim();
         const sess = core.sessions[core.currSessId];
@@ -210,7 +217,7 @@ Object.assign(core, {
         const hits = core.mems.filter(m => m.keys.some(k => txt.toLowerCase().includes(k.toLowerCase())));
         if (hits.length) sys += `\n[Memory]:\n${hits.map(h => `- ${h.info}`).join('\n')}`;
 
-        // 混合截断逻辑 (Hybrid Truncation)
+        // 混合截断逻辑
         const HISTORY_MSG_LIMIT = 10;   
         const MAX_CONTEXT_CHARS = 2000; 
 
@@ -265,7 +272,7 @@ Object.assign(core, {
         } catch (e) { aiDiv.innerHTML = 'Error: ' + e.message; }
     },
     
-    // 5. 辅助功能 (保持 V1.6)
+    // 6. 其他辅助 (时钟, 语音, 文件等)
     clockTick: () => {
         const n = new Date();
         const cn = new Date(n.getTime() + (n.getTimezoneOffset() * 60000) + (3600000 * 8));
@@ -302,7 +309,7 @@ Object.assign(core, {
             else core.showToast(`❌ 失败: ${res.status}`, 'error');
         } catch (e) { core.showToast('❌ 网络错误', 'error'); }
     },
-    exportData: () => { const d = { conf: core.conf, voice: core.voiceConf, mems: core.mems, evts: core.evts, sessions: core.sessions, personas: core.personas }; const b = new Blob([JSON.stringify(d, null, 2)], { type: 'application/json' }); const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = 'schiller_v22.json'; a.click(); },
+    exportData: () => { const d = { conf: core.conf, voice: core.voiceConf, mems: core.mems, evts: core.evts, sessions: core.sessions, personas: core.personas }; const b = new Blob([JSON.stringify(d, null, 2)], { type: 'application/json' }); const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = 'schiller_v23.json'; a.click(); },
     importData: (i) => {
         const r = new FileReader();
         r.onload = (e) => {
@@ -319,7 +326,8 @@ Object.assign(core, {
         };
         r.readAsText(i.files[0]);
     },
-    // 其他未修改的辅助函数
+    
+    // Voice
     setVoiceMode: (m) => { core.voiceConf.mode = m; core.updateVoiceUI(); },
     updateVoiceUI: () => {
         document.getElementById('v-mode-disp').value = core.voiceConf.mode.toUpperCase();
@@ -423,7 +431,6 @@ Object.assign(core, {
         if (lastGreet !== today && cfg.key) {
             const todayEvts = core.evts.filter(e => e.date === today);
             const planText = todayEvts.length > 0 ? `User's Today Schedule: ${todayEvts.map(e => e.t + ' ' + e.d).join(', ')}` : "User has no specific plans.";
-            
             const sysPrompt = `[System Trigger]: Daily Greeting\n[Date]: ${today}\n[User Context]: ${planText}\n[Instruction]: Based strictly on your persona, greet the user.\n[Current Persona]:\n${cfg.persona}`;
             core.triggerGreeting(sysPrompt);
             localStorage.setItem('v11_last_greet', today);
