@@ -480,7 +480,7 @@ Object.assign(core, {
             localStorage.setItem('v11_p_' + k, val);
         });
         ui.nav('chat');
-        document.getElementById('u-in').value = "今晚我感到孤独";
+        document.getElementById('u-in').value = "你好，我们来聊聊吧";
         core.send();
     },
     generatePersonalityPrompt: () => { return ""; },
