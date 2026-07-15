@@ -19,6 +19,72 @@
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+
+    <style>
+        .upload-menu-wrap {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #upload-menu {
+            position: absolute;
+            left: 0;
+            bottom: 52px;
+            min-width: 132px;
+            display: none;
+            flex-direction: column;
+            gap: 6px;
+            padding: 8px;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            box-shadow: var(--shadow-strong, 0 12px 40px rgba(0,0,0,0.18));
+            backdrop-filter: blur(20px) saturate(180%);
+            -webkit-backdrop-filter: blur(20px) saturate(180%);
+            z-index: 120;
+        }
+
+        #upload-menu.open {
+            display: flex;
+        }
+
+        .upload-menu-item {
+            width: 100%;
+            min-height: 38px;
+            padding: 0 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--text);
+            background: transparent;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 0.92rem;
+            transition: background 0.2s ease, transform 0.2s ease;
+        }
+
+        .upload-menu-item:hover {
+            background: var(--accent-bg);
+            transform: translateY(-1px);
+        }
+
+        i[data-lucide] {
+            width: 18px;
+            height: 18px;
+            stroke-width: 2;
+            vertical-align: middle;
+        }
+
+        nav .nav-item i[data-lucide] {
+            width: 22px;
+            height: 22px;
+        }
+    </style>
+
 </head>
 <body onclick="ui.hideCtx()">
 
@@ -29,29 +95,29 @@
     <div id="sidebar-overlay" onclick="ui.toggleSidebar(false)"></div>
     <div id="sidebar">
         <div class="sb-header">
-            <span>ARCHIVES</span> <span onclick="ui.toggleSidebar(false)" style="cursor:pointer; padding:5px;">✕</span>
+            <span>历史记录</span> <span onclick="ui.toggleSidebar(false)" style="cursor:pointer; padding:5px;"><i data-lucide="x"></i></span>
         </div>
-        <button class="btn primary" style="margin:15px 15px 5px 15px; width:auto;" onclick="core.newSession()">+ New Chat</button>
+        <button class="btn primary" style="margin:15px 15px 5px 15px; width:auto;" onclick="core.newSession()"><i data-lucide="plus"></i> 新建对话</button>
         
         <div class="sb-list" id="session-list"></div>
         
         <div style="padding:15px; border-top:1px solid var(--border); display:flex; flex-direction:column; gap:10px;">
             <button class="btn" style="width:100%; border-color:var(--accent); color:var(--accent); font-weight:bold;" onclick="ui.nav('tune'); ui.toggleSidebar(false);">
-                 Personality Tuning
+                 个性设置
             </button>
             <button class="btn" style="width:100%; color:var(--text-sub); border:none; background:var(--bg);" onclick="ui.showLog(); ui.toggleSidebar(false);">
-                 Update Log (V2.4)
+                 更新日志 (V2.4)
             </button>
         </div>
     </div>
 
     <div id="p-chat" class="page active">
         <header>
-            <button class="h-btn" onclick="ui.toggleSidebar(true)">☰</button>
+            <button class="h-btn" onclick="ui.toggleSidebar(true)"><i data-lucide="menu"></i></button>
             <h1 id="header-title">Schiller</h1> 
             <div>
-                <button id="tts-indicator" class="h-btn" onclick="core.toggleAutoTTS()" title="Auto-Read">🔈</button>
-                <button class="h-btn" onclick="ui.modal(true)">⚙️</button>
+                <button id="tts-indicator" class="h-btn" onclick="core.toggleAutoTTS()" title="自动朗读"><i data-lucide="volume"></i></button>
+                <button class="h-btn" onclick="ui.modal(true)"><i data-lucide="settings"></i></button>
             </div>
         </header>
         <div id="chat-box"></div>
@@ -60,49 +126,65 @@
             <div id="preview-area"></div>
             <div class="input-row">
                 <input type="file" id="file-input" accept=".pdf,.docx,.txt,.md" style="display:none" onchange="core.handleFile(this)">
-                <button class="icon-btn" onclick="document.getElementById('file-input').click()">📄</button>
                 <input type="file" id="img-input" accept="image/*" style="display:none" onchange="core.handleImg(this)">
-                <button class="icon-btn" onclick="document.getElementById('img-input').click()">📎</button>
-                <textarea id="u-in" placeholder="Message..."></textarea>
-                <button class="btn" onclick="core.send()" style="background:var(--accent);border:none;color:white;width:40px;height:40px;padding:0;display:flex;align-items:center;justify-content:center;border-radius:20px;">↑</button>
+
+                <div class="upload-menu-wrap" id="upload-menu-wrap">
+                    <button class="icon-btn" type="button" onclick="toggleUploadMenu(event)" aria-label="添加内容">
+                        <i data-lucide="plus"></i>
+                    </button>
+
+                    <div id="upload-menu">
+                        <button class="upload-menu-item" type="button" onclick="event.stopPropagation(); document.getElementById('img-input').click(); closeUploadMenu();">
+                            <i data-lucide="image"></i>
+                            <span>图片</span>
+                        </button>
+                        <button class="upload-menu-item" type="button" onclick="event.stopPropagation(); document.getElementById('file-input').click(); closeUploadMenu();">
+                            <i data-lucide="file-text"></i>
+                            <span>文件</span>
+                        </button>
+                    </div>
+                </div>
+
+                <textarea id="u-in" placeholder="说点什么"></textarea>
+                <button class="btn" onclick="core.send()" style="background:var(--accent);border:none;color:white;width:40px;height:40px;padding:0;display:flex;align-items:center;justify-content:center;border-radius:20px;"><i data-lucide="send"></i></button>
             </div>
         </div>
     </div>
 
     <div id="p-cal" class="page">
-        <header><h1>Calendar</h1></header>
+        <header><h1>日程</h1></header>
         
         <div class="clock-row">
-            <div class="clock"><div id="t-cn" class="clock-t">--:--</div><div class="clock-l">Beijing</div></div>
-            <div class="clock"><div id="t-ny" class="clock-t">--:--</div><div class="clock-l">New York</div></div>
+            <div class="clock"><div id="t-cn" class="clock-t">--:--</div><div class="clock-l">北京</div></div>
+            <div class="clock"><div id="t-ny" class="clock-t">--:--</div><div class="clock-l">纽约</div></div>
         </div>
 
         <div class="cal-controls" style="display:flex; justify-content:space-between; align-items:center; padding:10px 15px;">
-            <button class="icon-btn" onclick="calendar.changeMonth(-1)">❮</button>
-            <div id="cal-title" style="font-weight:bold; font-size:1.1rem; color:var(--accent);">Loading...</div>
-            <button class="icon-btn" onclick="calendar.changeMonth(1)">❯</button>
+            <button class="icon-btn" onclick="calendar.changeMonth(-1)"><i data-lucide="chevron-left"></i></button>
+            <div id="cal-title" style="font-weight:bold; font-size:1.1rem; color:var(--accent);">加载中...</div>
+            <button class="icon-btn" onclick="calendar.changeMonth(1)"><i data-lucide="chevron-right"></i></button>
         </div>
 
         <div id="cal-grid" class="cal-grid"></div>
 
         <div style="padding:15px 15px 5px 15px; font-weight:bold; color:var(--text-sub); border-top:1px solid var(--border); margin-top:15px; font-size:0.9rem;">
-            Plans for: 
-            <span id="selected-date-label" style="color:var(--accent);">Today</span>
+            计划日期： 
+            <span id="selected-date-label" style="color:var(--accent);">今天</span>
         </div>
         
         <div id="evt-list" style="flex:1;overflow-y:auto;padding:0 15px 15px 15px;"></div>
 
         <div id="add-box" style="padding:10px;background:var(--card);border-top:1px solid var(--border);display:flex;gap:8px;">
             <input type="time" id="ev-t" value="09:00" class="inp" style="width:auto;margin:0;">
-            <input type="text" id="ev-txt" placeholder="Plan for this day..." class="inp" style="margin:0;flex:1;">
-            <button class="btn" onclick="calendar.addEv()" style="background:var(--accent);border:none;color:white;width:40px;height:40px;border-radius:8px;">+</button>
+            <input type="text" id="ev-txt" placeholder="写下这一天的计划……" class="inp" style="margin:0;flex:1;">
+            <button class="btn" onclick="calendar.addEv()" style="background:var(--accent);border:none;color:white;width:40px;height:40px;border-radius:8px;"><i data-lucide="plus"></i></button>
         </div>
     </div>
 
     <div id="p-tune" class="page" style="background:var(--card);">
         <header>
-            <button class="h-btn" onclick="ui.nav('chat')">←</button>
-            <h1>Personality Engine</h1>
+            <button class="h-btn" onclick="ui.nav('chat')"><i data-lucide="arrow-left"></i></button>
+            <h1>个性引擎</h1>
             <div style="width:30px"></div>
         </header>
         <div style="flex:1; overflow-y:auto; padding:20px; display:flex; flex-direction:column; gap:25px;">
@@ -110,62 +192,87 @@
             <div class="tune-card">
                 <div class="tune-head"> 温暖 <span id="val-warm" class="tune-val">50</span>%</div>
                 <input type="range" id="rng-warm" class="slider" min="0" max="100" value="50" oninput="ui.updateTune('warm', this.value)">
-                <div class="tune-desc">Cold / Distant <span style="float:right">Affectionate</span></div>
+                <div class="tune-desc">冷淡 / 疏离 <span style="float:right">亲近 / 温柔</span></div>
             </div>
 
             <div class="tune-card">
                 <div class="tune-head"> 直接性 <span id="val-direct" class="tune-val">50</span>%</div>
                 <input type="range" id="rng-direct" class="slider" min="0" max="100" value="50" oninput="ui.updateTune('direct', this.value)">
-                <div class="tune-desc">Evasive / Polite <span style="float:right">Blunt / Direct</span></div>
+                <div class="tune-desc">委婉 / 礼貌 <span style="float:right">坦率 / 直接</span></div>
             </div>
 
             <div class="tune-card">
                 <div class="tune-head"> 知识分子 <span id="val-intel" class="tune-val">50</span>%</div>
                 <input type="range" id="rng-intel" class="slider" min="0" max="100" value="50" oninput="ui.updateTune('intel', this.value)">
-                <div class="tune-desc">Casual / Simple <span style="float:right">Academic / Deep</span></div>
+                <div class="tune-desc">日常 / 简单 <span style="float:right">学术 / 深入</span></div>
             </div>
 
             <div class="tune-card">
                 <div class="tune-head"> 同理心 <span id="val-empathy" class="tune-val">50</span>%</div>
                 <input type="range" id="rng-empathy" class="slider" min="0" max="100" value="50" oninput="ui.updateTune('empathy', this.value)">
-                <div class="tune-desc">Logical / Detached <span style="float:right">Compassionate</span></div>
+                <div class="tune-desc">理性 / 抽离 <span style="float:right">共情 / 温柔</span></div>
             </div>
 
             <div class="tune-card">
-                <div class="tune-head"> Compliance (顺从度) <span id="val-obed" class="tune-val">50</span>%</div>
+                <div class="tune-head"> 顺从度 <span id="val-obed" class="tune-val">50</span>%</div>
                 <input type="range" id="rng-obed" class="slider" min="0" max="100" value="50" oninput="ui.updateTune('obed', this.value)">
-                <div class="tune-desc">Stubborn / Independent <span style="float:right">Submissive</span></div>
+                <div class="tune-desc">固执 / 独立 <span style="float:right">顺从</span></div>
             </div>
 
             <div style="margin-top:20px; text-align:center;">
                 <p style="font-size:0.8rem; color:var(--text-sub); margin-bottom:15px;">
                     调节完毕后，点击下方按钮将自动保存并发送测试消息：<br>"你好，我们来聊聊吧"
                 </p>
-                <button class="btn primary" onclick="core.testPersonality()">Save & Test</button>
+                <button class="btn primary" onclick="core.testPersonality()">保存并测试</button>
             </div>
         </div>
     </div>
 
+<div id="p-notes" class="page">
+  <div class="notes-header">
+    <h2>便签</h2>
+    <p>便签可以手动创建，也可以由 TALK 自动整理。</p>
+  </div>
+
+  <div class="note-form">
+    <input id="noteTitleInput" type="text" placeholder="便签标题">
+    <textarea id="noteContentInput" placeholder="便签内容"></textarea>
+    <button id="addNoteBtn">添加便签</button>
+  </div>
+
+  <div id="activeNoteInfo" class="active-note-info"></div>
+
+  <div id="notesList" class="notes-list"></div>
+</div>
+
+
     <nav>
-        <div class="nav-item active" onclick="ui.nav('chat')"><span> Chat</span></div>
-        <div class="nav-item" onclick="ui.nav('cal')"><span> Plan</span></div>
+        <div class="nav-item active" onclick="ui.nav('chat')" aria-label="对话" title="对话">
+            <i data-lucide="message-circle"></i>
+        </div>
+        <div class="nav-item" onclick="ui.nav('cal')" aria-label="日程" title="日程">
+            <i data-lucide="calendar"></i>
+        </div>
+        <div class="nav-item" onclick="ui.nav('notes')" aria-label="便签" title="便签">
+            <i data-lucide="sticky-note"></i>
+        </div>
     </nav>
 
-    <div id="set-modal">
+    <div id="set-modal" onclick="if(event.target === this) ui.modal(false)">
         <div class="modal">
             <div class="tabs">
-                <div class="tab active" onclick="ui.tab('conn')">Chat</div>
-                <div class="tab" onclick="ui.tab('voice')">Audio</div>
-                <div class="tab" onclick="ui.tab('mem')">Memory</div>
-                <div class="tab" onclick="ui.tab('bkp')">Data</div>
+                <div class="tab active" onclick="ui.tab('conn')">对话</div>
+                <div class="tab" onclick="ui.tab('voice')">语音</div>
+                <div class="tab" onclick="ui.tab('mem')">记忆</div>
+                <div class="tab" onclick="ui.tab('bkp')">数据</div>
             </div>
 
          <div id="tab-conn" class="tab-content active">
             <button class="btn" onclick="ui.toggleTheme()" style="width:100%; margin-bottom:15px; background:var(--bg); color:var(--text); border:1px solid var(--accent); font-weight:bold;">
-                🌗 Switch Theme (Day/Night)
+                <i data-lucide="contrast"></i> 切换主题（日间/夜间）
             </button>
 
-            <label style="margin-top:10px;">API Format (底层协议)</label>
+            <label style="margin-top:10px;">API 格式（底层协议）</label>
             <select id="c-fmt" class="inp" style="border-color:var(--accent); color:var(--accent); font-weight:bold;">
                 <option value="openai">OpenAI 格式 (通用/DeepSeek/GPT)</option>
                 <option value="gemini">Google Gemini 格式</option>
@@ -177,73 +284,73 @@
                 <button class="btn" style="flex:1" onclick="core.preset('gemini')">Gemini</button>
             </div>
 
-            <label>Chat API Key</label><input type="password" id="c-key" class="inp">
-            <label>Endpoint</label><input type="text" id="c-url" class="inp">
-            <label>Model</label><input type="text" id="c-mod" class="inp">
-            <label>Persona</label><textarea id="c-per" class="inp" rows="3"></textarea>
+            <label>对话 API Key</label><input type="password" id="c-key" class="inp">
+            <label>接口地址</label><input type="text" id="c-url" class="inp">
+            <label>模型</label><input type="text" id="c-mod" class="inp">
+            <label>人设</label><textarea id="c-per" class="inp" rows="3"></textarea>
             
             <div style="background:var(--card); padding:10px; border-radius:8px; border:1px solid var(--border); margin-bottom:12px;">
-                <label>Temperature: <span id="t-val" style="color:var(--accent)">1.0</span> (发散度)</label>
+                <label>温度： <span id="t-val" style="color:var(--accent)">1.0</span> (发散度)</label>
                 <input type="range" id="c-temp" class="slider" min="0" max="2" step="0.1" value="1.0" oninput="document.getElementById('t-val').innerText=this.value">
                 
-                <label>Freq Penalty: <span id="val-freq" style="color:var(--accent)">0.0</span> (拒绝重复)</label>
+                <label>频率惩罚： <span id="val-freq" style="color:var(--accent)">0.0</span> (拒绝重复)</label>
                 <input type="range" id="c-freq" class="slider" min="-2" max="2" step="0.1" value="0" oninput="document.getElementById('val-freq').innerText=this.value">
                 
-                <label>Pres Penalty: <span id="val-pres" style="color:var(--accent)">0.0</span> (引入新词)</label>
+                <label>存在惩罚： <span id="val-pres" style="color:var(--accent)">0.0</span> (引入新词)</label>
                 <input type="range" id="c-pres" class="slider" min="-2" max="2" step="0.1" value="0" oninput="document.getElementById('val-pres').innerText=this.value">
 
-                <label style="margin-top:10px">Max Tokens (0=Default)</label>
+                <label style="margin-top:10px">最大输出 Token（0=默认）</label>
                 <input type="number" id="c-max" class="inp" value="0">
 
-                <label style="margin-top:10px">Min Output (最低回复字数):</label>
+                <label style="margin-top:10px">最低回复字数：</label>
                 <input type="number" id="c-min" class="inp" placeholder="例如: 500" style="margin-bottom:0;">
                 <small style="color:var(--text-sub); font-size:0.7rem;">提示：AI 会尝试以此字数作为回复的底线。</small>
             </div>
 
-            <button class="btn primary" onclick="core.saveConn()">Save Config</button>
+            <button class="btn primary" onclick="core.saveConn()">保存配置</button>
         </div>
             
             <div id="tab-voice" class="tab-content">
-                 <label>Voice Engine</label>
+                 <label>语音引擎</label>
                 <div class="row" style="display:flex;gap:10px;">
-                    <button class="btn" style="flex:1" onclick="core.setVoiceMode('native')">Native (Free)</button>
-                    <button class="btn" style="flex:1" onclick="core.setVoiceMode('openai')">OpenAI (Pro)</button>
+                    <button class="btn" style="flex:1" onclick="core.setVoiceMode('native')">本机语音（免费）</button>
+                    <button class="btn" style="flex:1" onclick="core.setVoiceMode('openai')">OpenAI 语音（专业）</button>
                 </div>
                 <input type="text" id="v-mode-disp" class="inp" disabled style="text-align:center; margin-top:10px; color:var(--accent);">
                 <div id="openai-voice-opts" style="display:none; margin-top:15px; border-top:1px solid var(--border); padding-top:15px;">
-                    <label>Audio Key</label><input type="password" id="v-key" class="inp" placeholder="sk-...">
-                    <label>Voice</label>
+                    <label>语音 API Key</label><input type="password" id="v-key" class="inp" placeholder="sk-...">
+                    <label>音色</label>
                     <select id="v-voice" class="inp">
                         <option value="onyx">Onyx</option><option value="alloy">Alloy</option><option value="nova">Nova</option>
                     </select>
                 </div>
-                <button class="btn primary" onclick="core.saveVoice()">Save Voice</button>
+                <button class="btn primary" onclick="core.saveVoice()">保存语音设置</button>
             </div>
 
             <div id="tab-mem" class="tab-content">
                  <div style="margin-bottom:10px;background:var(--card);padding:10px;border-radius:8px;border:1px solid var(--border);">
-                    <input type="text" id="new-mem-keys" class="inp" placeholder="Keywords">
-                    <textarea id="new-mem-info" class="inp" rows="2" placeholder="Detail..."></textarea>
-                    <button class="btn" style="width:100%;border-color:var(--accent);color:var(--accent)" onclick="core.addMem()">Add Memory</button>
+                    <input type="text" id="new-mem-keys" class="inp" placeholder="关键词">
+                    <textarea id="new-mem-info" class="inp" rows="2" placeholder="详细信息……"></textarea>
+                    <button class="btn" style="width:100%;border-color:var(--accent);color:var(--accent)" onclick="core.addMem()">添加记忆</button>
                 </div>
                 <div id="mem-list-container"></div>
             </div>
 
             <div id="tab-bkp" class="tab-content">
-                <button class="btn" style="width:100%;margin-bottom:10px" onclick="core.exportData()">📤 Export Data</button>
+                <button class="btn" style="width:100%;margin-bottom:10px" onclick="core.exportData()"><i data-lucide="upload"></i> 导出数据</button>
                 <input type="file" id="import-file" style="display:none" onchange="core.importData(this)">
-                <button class="btn" style="width:100%;border-color:#f85149;color:#f85149" onclick="document.getElementById('import-file').click()">📥 Import Data</button>
+                <button class="btn" style="width:100%;border-color:#f85149;color:#f85149" onclick="document.getElementById('import-file').click()"><i data-lucide="download"></i> 导入数据</button>
             </div>
 
-            <button class="btn" onclick="ui.modal(false)" style="width:100%; margin-top:10px; border:none; color:var(--text-sub)">Close</button>
+            <button class="btn" onclick="ui.modal(false)" style="width:100%; margin-top:10px; border:none; color:var(--text-sub)">关闭</button>
         </div>
     </div>
 
     <div id="log-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:250; justify-content:center; align-items:center; backdrop-filter: blur(3px);">
         <div style="background:var(--bg); width:90%; max-height:80vh; border-radius:16px; border:1px solid var(--border); display:flex; flex-direction:column; overflow:hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
             <div style="padding:20px; border-bottom:1px solid var(--border); font-weight:bold; font-size:1.2rem; color:var(--text); display:flex; justify-content:space-between; align-items:center;">
-                📝 Update Log
-                <button onclick="ui.hideLog()" style="background:none; border:none; font-size:1.2rem; cursor:pointer; color:var(--text-sub);">✕</button>
+                <i data-lucide="notebook-pen"></i> 更新日志
+                <button onclick="ui.hideLog()" style="background:none; border:none; font-size:1.2rem; cursor:pointer; color:var(--text-sub);"><i data-lucide="x"></i></button>
             </div>
             <div id="log-content" style="padding:20px; overflow-y:auto; flex:1; color:var(--text); line-height:1.6; font-size:0.95rem;">
                 </div>
@@ -254,6 +361,40 @@
     <script src="js/ui.js?v=1.2"></script>
     <script src="js/calendar.js?v=1.2"></script>
     <script src="js/engine.js?v=1.2"></script>
+    <script src="js/notes.js?v=1.0"></script>
+
+    <script>
+        function toggleUploadMenu(event) {
+            if (event) event.stopPropagation();
+
+            const menu = document.getElementById("upload-menu");
+            if (!menu) return;
+
+            menu.classList.toggle("open");
+
+            if (window.lucide) {
+                lucide.createIcons();
+            }
+        }
+
+        function closeUploadMenu() {
+            const menu = document.getElementById("upload-menu");
+            if (!menu) return;
+
+            menu.classList.remove("open");
+        }
+
+        document.addEventListener("click", function (event) {
+            const wrap = document.getElementById("upload-menu-wrap");
+
+            if (wrap && !wrap.contains(event.target)) {
+                closeUploadMenu();
+            }
+        });
+
+        lucide.createIcons();
+    </script>
+
 
 </body>
 </html>
