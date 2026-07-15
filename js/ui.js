@@ -38,9 +38,13 @@ const ui = {
         if (p === 'tune') {
             document.getElementById('p-tune').classList.add('active');
         } else {
-            document.getElementById(p === 'chat' ? 'p-chat' : 'p-cal').classList.add('active');
-            document.querySelectorAll('.nav-item')[p === 'chat' ? 0 : 1].classList.add('active');
-        }
+           let pageId = 'p-chat';
+        if (p === 'cal') pageId = 'p-cal';
+        if (p === 'notes') pageId = 'p-notes';
+        document.getElementById(pageId).classList.add('active');
+        const idx = p === 'chat' ? 0 : p === 'cal' ? 1 : 2;
+        document.querySelectorAll('.nav-item')[idx].classList.add('active');
+    }
     },
     modal: (s) => { 
         document.getElementById('set-modal').style.display = s ? 'flex' : 'none'; 
@@ -76,7 +80,7 @@ const ui = {
 
         if (role !== 'user') {
             const rawTxt = txt.replace(/"/g, '&quot;');
-            content += `<div class="replay-btn" onclick="core.speak('${rawTxt}', true)">🔈 Replay</div>`;
+            content += `<div class="replay-btn" onclick="core.speak('${rawTxt}', true)"> </div>`;
         }
         d.innerHTML = content;
 

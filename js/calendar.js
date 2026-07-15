@@ -3,6 +3,53 @@
 // ==========================================
 
 const calendar = {
+    // 确保日历页面拥有左右布局所需的结构
+    // 桌面端由 CSS 显示为：左侧 60% 日历 / 右侧 40% 事件列表
+    ensureLayout: () => {
+        const page = document.getElementById('p-cal');
+        const clockRow = document.querySelector('#p-cal .clock-row');
+        const controls = document.querySelector('#p-cal .cal-controls');
+        const grid = document.getElementById('cal-grid');
+        const evtList = document.getElementById('evt-list');
+        const addBox = document.getElementById('add-box');
+        const selectedLabel = document.getElementById('selected-date-label');
+
+        if (!page || !clockRow || !controls || !grid || !evtList || !addBox || !selectedLabel) return;
+        if (document.getElementById('cal-layout')) return;
+
+        const layout = document.createElement('div');
+        layout.id = 'cal-layout';
+        layout.className = 'cal-layout';
+
+        const left = document.createElement('section');
+        left.className = 'cal-left';
+
+        const right = document.createElement('section');
+        right.className = 'cal-right';
+
+        const eventHeader = document.createElement('div');
+        eventHeader.className = 'evt-panel-title';
+        eventHeader.innerHTML = `计划日期： <span id="selected-date-label">${selectedLabel.innerText || core.selectedDateStr}</span>`;
+
+        const oldLabelBlock = selectedLabel.parentElement;
+
+        page.insertBefore(layout, clockRow);
+        layout.appendChild(left);
+        layout.appendChild(right);
+
+        left.appendChild(clockRow);
+        left.appendChild(controls);
+        left.appendChild(grid);
+
+        right.appendChild(eventHeader);
+        right.appendChild(evtList);
+        right.appendChild(addBox);
+
+        if (oldLabelBlock && oldLabelBlock.parentElement) {
+            oldLabelBlock.remove();
+        }
+    },
+
     // 切换月份
     changeMonth: (delta) => {
         core.calDate.setMonth(core.calDate.getMonth() + delta);
@@ -18,6 +65,8 @@ const calendar = {
     
     // 渲染日历网格
     renderCalendar: () => {
+        calendar.ensureLayout();
+
         const grid = document.getElementById('cal-grid');
         if (!grid) return; 
         
@@ -96,18 +145,20 @@ const calendar = {
     
     // 渲染当日计划列表
     renderEvt: () => { 
+        calendar.ensureLayout();
+
         const b = document.getElementById('evt-list');
         if (!b) return;
         b.innerHTML = ''; 
         const dailyEvts = core.evts.filter(e => e.date === core.selectedDateStr);
         if (dailyEvts.length === 0) {
-            b.innerHTML = '<div style="text-align:center;color:var(--text-sub);margin-top:20px;font-size:0.9rem">No plans.</div>';
+            b.innerHTML = '<div class="empty-events">暂无计划。</div>';
             return;
         }
         dailyEvts.forEach(e => { 
             b.innerHTML += `<div class="evt">
-                <div style="display:flex;justify-content:space-between"><b>${e.d}</b><span style="color:var(--accent)">${e.t}</span></div>
-                <div class="evt-n">${e.n}</div>
+                <div class="evt-main"><b>${e.d}</b><span>${e.t}</span></div>
+                <div class="evt-n">${e.n || ''}</div>
                 <button class="del" onclick="calendar.delEv(${e.id})">×</button>
             </div>`; 
         }); 

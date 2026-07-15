@@ -46,8 +46,8 @@ Object.assign(core, {
             div.id = 'persona-tools';
             div.style.marginTop = '5px';
             div.innerHTML = `
-                <button onclick="core.savePersonaCard()" style="font-size:12px;padding:4px 8px;cursor:pointer;margin-right:5px;">💾 存为人设</button>
-                <button onclick="core.loadPersonaCard()" style="font-size:12px;padding:4px 8px;cursor:pointer;">📂 读取人设</button>
+                <button onclick="core.savePersonaCard()" style="font-size:12px;padding:4px 8px;cursor:pointer;margin-right:5px;"> 存为人设</button>
+                <button onclick="core.loadPersonaCard()" style="font-size:12px;padding:4px 8px;cursor:pointer;"> 读取人设</button>
             `;
             perBox.parentNode.insertBefore(div, perBox.nextSibling);
         }
@@ -58,7 +58,7 @@ Object.assign(core, {
             div.id = 'mem-tools';
             div.style.marginBottom = '5px';
             div.innerHTML = `
-                <button onclick="core.compressSession()" style="width:100%; padding:8px; background:#e0e0e0; border:none; border-radius:4px; cursor:pointer; font-weight:bold; color:#333;">🧠 提取剧情摘要 (不清除对话)</button>
+                <button onclick="core.compressSession()" style="width:100%; padding:8px; background:#e0e0e0; border:none; border-radius:4px; cursor:pointer; font-weight:bold; color:#333;"> 提取剧情摘要 (不清除对话)</button>
                 <div id="pinned-mem-display" style="font-size:11px; color:#666; margin-top:4px; font-style:italic;"></div>
             `;
             memInput.parentNode.insertBefore(div, memInput);
@@ -115,9 +115,10 @@ Object.assign(core, {
             if (!sess.config) sess.config = { ...core.conf };
             sess.config.pinnedMemory = summary; // 存进 pinnedMemory 字段
             core.saveSessions();
+
             
             // 3. UI 反馈
-            core.showToast('✅ 摘要已钉选');
+            core.showToast(' 摘要已钉选');
             
             // 在聊天框里插入一条系统提示（不发给AI，只给用户看）
             const aiIdx = sess.msgs.length;
@@ -134,7 +135,7 @@ Object.assign(core, {
 
         } catch (e) {
             alert("压缩失败: " + e.message);
-            core.showToast('❌ 压缩失败', 'error');
+            core.showToast(' 压缩失败', 'error');
         }
     },
     
@@ -143,7 +144,7 @@ Object.assign(core, {
         const sess = core.sessions[core.currSessId];
         const el = document.getElementById('pinned-mem-display');
         if (el && sess && sess.config && sess.config.pinnedMemory) {
-            el.innerText = `📌 当前生效的长时记忆: ${sess.config.pinnedMemory.substring(0, 30)}...`;
+            el.innerText = ` 当前生效的长时记忆: ${sess.config.pinnedMemory.substring(0, 30)}...`;
         } else if (el) {
             el.innerText = "";
         }
@@ -204,7 +205,7 @@ Object.assign(core, {
         core.conf = { ...core.conf, ...sess.config };
         Object.keys(core.conf).forEach(k => { if (!k.startsWith('p_')) localStorage.setItem('v11_' + k, core.conf[k]); });
         core.saveSessions();
-        core.showToast('✅ 配置保存', 'success');
+        core.showToast(' 配置保存', 'success');
         await core.testConnection();
     },
     
@@ -233,8 +234,17 @@ Object.assign(core, {
         const dateStr = `${now.getFullYear()}-${now.getMonth()+1}-${now.getDate()} ${days[now.getDay()]}`;
         
         let sys = (cfg.persona || "You are a helpful assistant.") + `\n[Date: ${dateStr}]`;
+// 注入激活便签
+try {
+  if (core.activeNoteId && Array.isArray(core.notes)) {
+    const activeNote = core.notes.find(function(n){ return n.id === core.activeNoteId; });
+    if (activeNote) {
+      sys += '\n\n【当前激活便签】\n标题：' + activeNote.title + '\n内容：' + activeNote.content + '\n\n请在回答时参考这条便签内容。';
+    }
+  }
+} catch(e) {}
         
-        // 【V2.4 新增】强制注入 Pinned Memory (长时记忆)
+        // 【V2.4 新增】长时记忆
         if (cfg.pinnedMemory) {
             sys += `\n\n[PREVIOUS CONTEXT / LONG-TERM MEMORY]:\n${cfg.pinnedMemory}\n(The above is a summary of previous events. Continue the story based on this.)\n`;
         }
@@ -293,6 +303,110 @@ Object.assign(core, {
             sess.msgs.push({ role: 'assistant', content: final, time: aiTime }); 
             sess.config = cfg; 
             core.saveSessions();
+
+// 自动记忆提取：失败不影响主流程
+try {
+  const memRes = await fetch(cfg.url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${cfg.key}`
+    },
+    body: JSON.stringify({
+      model: cfg.model || "deepseek-chat",
+      messages: [
+        {
+          role: "system",
+          content: "判断这句话是否包含值得长期记住的个人信息（姓名、偏好、习惯、重要事项等）。有则返回JSON：{hasMemory:true, keys:['关键词'], info:'一句话总结'}，没有则返回{hasMemory:false}。只返回JSON，不要其他内容。"
+        },
+        {
+          role: "user",
+          content: txt
+        }
+      ],
+      temperature: 0
+    })
+  });
+
+  const memData = await memRes.json();
+  let memText = memData?.choices?.[0]?.message?.content || "";
+
+  memText = memText
+    .replace(/^```json\s*/i, "")
+    .replace(/^```\s*/i, "")
+    .replace(/```$/i, "")
+    .trim();
+
+  const result = JSON.parse(memText);
+
+  if (
+    result &&
+    result.hasMemory === true &&
+    Array.isArray(result.keys) &&
+    result.info
+  ) {
+    core.mems.push({
+      keys: result.keys,
+      info: result.info
+    });
+
+    localStorage.setItem("v11_mems", JSON.stringify(core.mems));
+  }
+} catch (e) {}
+
+// 自动提醒/日程提取：失败不影响主流程
+try {
+  const reminderRes = await fetch(cfg.url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${cfg.key}`
+    },
+    body: JSON.stringify({
+      model: cfg.model || "deepseek-chat",
+      messages: [
+        {
+          role: "system",
+          content: `今天日期是${dateStr}。判断用户这句话是否包含设置提醒或日程的意图（如'明天8点提醒我开会'、'下周一提醒我交作业'等）。有则返回JSON：{hasReminder:true, date:'YYYY-MM-DD', time:'HH:MM', desc:'事件描述'}，没有则返回{hasReminder:false}。只返回JSON。`
+        },
+        {
+          role: "user",
+          content: txt
+        }
+      ],
+      temperature: 0
+    })
+  });
+
+  const reminderData = await reminderRes.json();
+  let reminderText = reminderData?.choices?.[0]?.message?.content || "";
+
+  reminderText = reminderText
+    .replace(/^```json\s*/i, "")
+    .replace(/^```\s*/i, "")
+    .replace(/```$/i, "")
+    .trim();
+
+  const result = JSON.parse(reminderText);
+
+  if (
+    result &&
+    result.hasReminder === true &&
+    result.date &&
+    result.time &&
+    result.desc
+  ) {
+    core.evts.push({
+      date: result.date,
+      t: result.time,
+      d: result.desc
+    });
+
+    localStorage.setItem("v11_evts", JSON.stringify(core.evts));
+  }
+} catch (e) {}
+
+
             if (core.autoTTS) core.speak(final);
         } catch (e) { aiDiv.innerHTML = 'Error: ' + e.message; }
     },
@@ -330,9 +444,9 @@ Object.assign(core, {
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${cfg.key}` },
                 body: JSON.stringify({ model: cfg.model, messages: [{ role: 'user', content: 'hi' }], max_tokens: 1 })
             });
-            if (res.ok) core.showToast('✅ 连接成功', 'success');
-            else core.showToast(`❌ 失败: ${res.status}`, 'error');
-        } catch (e) { core.showToast('❌ 网络错误', 'error'); }
+            if (res.ok) core.showToast(' 连接成功', 'success');
+            else core.showToast(` 失败: ${res.status}`, 'error');
+        } catch (e) { core.showToast(' 网络错误', 'error'); }
     },
     exportData: () => { const d = { conf: core.conf, voice: core.voiceConf, mems: core.mems, evts: core.evts, sessions: core.sessions, personas: core.personas }; const b = new Blob([JSON.stringify(d, null, 2)], { type: 'application/json' }); const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = 'schiller_v24.json'; a.click(); },
     importData: (i) => {
@@ -489,7 +603,7 @@ Object.assign(core, {
         Object.keys(core.sessions).sort().reverse().forEach(id => {
             const s = core.sessions[id]; const div = document.createElement('div');
             div.className = `sb-item ${id === core.currSessId ? 'active' : ''}`;
-            div.innerHTML = `<span style="display:inline-block; max-width:70%; overflow:hidden; text-overflow:ellipsis; vertical-align:middle;">${s.title}</span><button class="sb-edit" onclick="core.editSessTitle('${id}', event)">✏️</button><button class="sb-del" onclick="core.delSess('${id}', event)">×</button>`;
+            div.innerHTML = `<span style="display:inline-block; max-width:70%; overflow:hidden; text-overflow:ellipsis; vertical-align:middle;">${s.title}</span><button class="sb-edit" onclick="core.editSessTitle('${id}', event)"></button><button class="sb-del" onclick="core.delSess('${id}', event)">×</button>`;
             div.onclick = () => { core.loadSession(id); ui.toggleSidebar(false); };
             list.appendChild(div);
         });
